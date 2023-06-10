@@ -11,9 +11,6 @@ import re
 import serial.tools.list_ports
 import numpy as np
 
-customtkinter.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light"
-customtkinter.set_default_color_theme("blue")  # Themes: "blue" (standard), "green", "dark-blue"
-
 class MainFrame(customtkinter.CTkFrame):
     def __init__ (self, master, **kwargs):
         super().__init__(master, **kwargs)
@@ -26,7 +23,8 @@ class MainFrame(customtkinter.CTkFrame):
         self.ser = serial.Serial()
         if self.ser.is_open:
             self.ser.close()
-        
+            
+        self.data_nums = 3
         # ここにウィジェットを追加していく
         # ラベルを作成
         self.label = customtkinter.CTkLabel(self, text="Serial Plotter Made By YakiFrog", font=("Arial", 20, "bold"))
@@ -50,31 +48,49 @@ class MainFrame(customtkinter.CTkFrame):
         self.combo_baudrate.grid(row=2, column=1, columnspan=1, rowspan=1, padx=(0, pdx), pady=5, sticky="ew")
         self.combo_baudrate.set("115200")
         
+        # ラベルを作成
+        self.label_data = customtkinter.CTkLabel(self, text="How many Data", font=self.font)
+        self.label_data.grid(row=3, column=0, columnspan=1, rowspan=1, padx=(pdx, 0), pady=5, sticky="w")
+        
+        # 受信するデータの数を選択するコンボボックスを作成
+        self.combo_data = customtkinter.CTkComboBox(self, values=["1", "2", "3", "4"], state="readonly", font=self.font)   
+        self.combo_data.grid(row=3, column=1, columnspan=1, rowspan=1, padx=(0, pdx), pady=5, sticky="ew")
+        self.combo_data.set("3")
+        
         # Connect
         self.button_connect = customtkinter.CTkButton(self, text="Connect", fg_color="green", command=self.connect, font=self.font)
-        self.button_connect.grid(row=3, column=0, columnspan=2, rowspan=1, padx=(pdx, pdx), pady=5, sticky="nsew")
+        self.button_connect.grid(row=4, column=0, columnspan=2, rowspan=1, padx=(pdx, pdx), pady=5, sticky="nsew")
         
         # Disconnect
         self.button_disconnect = customtkinter.CTkButton(self, text="Disconnect", fg_color="#FF3535", command=self.disconnect, font=self.font)
-        self.button_disconnect.grid(row=4, column=0, columnspan=2, rowspan=1, padx=(pdx, pdx), pady=5, sticky="nsew")
+        self.button_disconnect.grid(row=5, column=0, columnspan=2, rowspan=1, padx=(pdx, pdx), pady=5, sticky="nsew")
+        
+        # グラフの数を選択するコンボボックスを作成
+        self.combo_graph = customtkinter.CTkComboBox(self, values=["1", "2", "3", "4"], state="readonly", font=self.font)   
+        self.combo_graph.grid(row=6, column=0, columnspan=1, rowspan=1, padx=(pdx, pdx), pady=5, sticky="sw")
+        self.combo_graph.set("1")
+        
+        # ボタン
+        self.button_graph = customtkinter.CTkButton(self, text="Update Graph", fg_color="gray", command=self.update_graph_nums, font=self.font)
+        self.button_graph.grid(row=6, column=1, columnspan=1, rowspan=1, padx=(pdx, pdx), pady=5, sticky="se")
         
         # Serial Monitor
         self.label_monitor = customtkinter.CTkLabel(self, text="Serial Monitor", font=("Arial", 16, "bold"))
-        self.label_monitor.grid(row=5, column=0, columnspan=2, rowspan=1, padx=(pdx, pdx), pady=5, sticky="sw")
+        self.label_monitor.grid(row=7, column=0, columnspan=2, rowspan=1, padx=(pdx, pdx), pady=5, sticky="sw")
         
         # テキストボックスを作成
         self.text_console = customtkinter.CTkTextbox(self, font=("Arial", 12), state="disabled", bg_color="black")
-        self.text_console.grid(row=6, column=0, columnspan=2, rowspan=1, padx=(pdx, pdx), pady=5, sticky="nsew")
+        self.text_console.grid(row=8, column=0, columnspan=2, rowspan=1, padx=(pdx, pdx), pady=5, sticky="nsew")
         # 常に最下部にスクロール
         self.text_console.see("end")
         
         # Entry
         self.entry = customtkinter.CTkEntry(self, font=("Arial", 12))
-        self.entry.grid(row=7, column=0, columnspan=2, rowspan=1, padx=(pdx, pdx), pady=5, sticky="nsew")
+        self.entry.grid(row=9, column=0, columnspan=2, rowspan=1, padx=(pdx, pdx), pady=5, sticky="nsew")
         
         # Send
         self.button_send = customtkinter.CTkButton(self, text="Send", fg_color="green", command=self.send, font=self.font)
-        self.button_send.grid(row=8, column=0, columnspan=2, rowspan=1, padx=(pdx, pdx), pady=5, sticky="nsew")
+        self.button_send.grid(row=10, column=0, columnspan=2, rowspan=1, padx=(pdx, pdx), pady=5, sticky="nsew")
         
         self.button_disconnect.configure(state="disabled")
         self.button_send.configure(state="disabled")
@@ -88,7 +104,8 @@ class MainFrame(customtkinter.CTkFrame):
         self.button_connect.configure(state="disabled")
         self.button_disconnect.configure(state="active")
         self.button_send.configure(state="active")
-        
+        self.data_nums = int(self.combo_data.get())
+        self.master.frame_graph.data = np.zeros((0, self.data_nums))
         # スレッドを作成
         self.thread = threading.Thread(target=self.read_serial) # 受信用のスレッドを作成
         # SubFrameのグラフを更新するスレッドを作成 
@@ -106,6 +123,9 @@ class MainFrame(customtkinter.CTkFrame):
         self.button_disconnect.configure(state="disabled")
         self.button_send.configure(state="disabled")
         self.ser.close()
+        
+    def update_graph_nums(self):
+        self.master.frame_graph.change_graph(int(self.combo_graph.get()))
         
     def send(self):
         self.master.send(self.entry.get())
@@ -129,7 +149,7 @@ class MainFrame(customtkinter.CTkFrame):
                     self.text_console.see("end")
                     
                     try:
-                        values = np.array(line.split(",")).astype(np.float32).reshape(1,3) # 1行をカンマ区切りで配列に変換
+                        values = np.array(line.split(",")).astype(np.float32).reshape(1,self.data_nums) # 1行をカンマ区切りで配列に変換
                         self.master.frame_graph.data = np.vstack((self.master.frame_graph.data, values))
                                  
                     except ValueError:
@@ -185,7 +205,24 @@ class SubFrame(customtkinter.CTkFrame):
                 time.sleep(0.02)
             except:
                 pass
-        
+    
+    def change_graph(self, num_graph=1):
+        self.num_graph = num_graph
+        self.axes = []
+        self.fig.clf()
+        self.fig, self.axes = plt.subplots(ncols=self.num_graph, nrows=1,figsize=(5, 4), dpi=50, tight_layout=True)
+        if self.num_graph == 1:
+            self.axes = [self.axes]
+        for i in range(self.num_graph):
+            self.axes[i].set_xlabel("Index")
+            self.axes[i].set_ylabel("Value")
+            self.axes[i].relim()
+            self.axes[i].autoscale_view()
+            self.axes[i].legend()
+            self.axes[i].grid()
+        self.canvas = FigureCanvasTkAgg(self.fig, self)
+        self.canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
+        self.canvas.draw() 
 
 class SerialPlotterGUI(customtkinter.CTk):
     def __init__(self):
@@ -193,12 +230,12 @@ class SerialPlotterGUI(customtkinter.CTk):
         threading.Thread.__init__(self) # スレッドグループを作成 (スレッドの管理ができる)
         self.title("Serial Plotter Made By YakiFrog")
         # ウィンドウのサイズ自動
-        self.geometry("1000x600")
+        self.geometry("1000x650")
         # ウィンドウのサイズ変更可
         self.resizable(width=True, height=True)
         # ウィンドウサイズ限界
-        self.maxsize(width=2000, height=600) 
-        self.minsize(width=350 + 10, height=550)
+        self.maxsize(width=2000, height=650) 
+        self.minsize(width=350 + 10, height=650)
         # ウィンドウを閉じるボタンを無効化
         self.protocol("WM_DELETE_WINDOW", self.quit) # 終了ボタンが押された時の処理
         
@@ -206,7 +243,7 @@ class SerialPlotterGUI(customtkinter.CTk):
         # フレームを作成
         self.frame = MainFrame(self)
         self.frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
-        self.frame.grid_rowconfigure((5), weight=1) 
+        self.frame.grid_rowconfigure(6, weight=1) 
         self.frame.grid_columnconfigure((0, 1), weight=1)
         
         # フレームを作成
