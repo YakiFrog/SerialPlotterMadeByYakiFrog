@@ -145,6 +145,7 @@ class SubFrame(customtkinter.CTkFrame):
         self.master = master
         # ここにウィジェットを追加していく   
         self.data = np.zeros((0,3))
+        self.max_points = 200
         # Graph
         self.fig, self.ax = plt.subplots(figsize=(5, 4), dpi=50)
         self.ax.set_xlabel("Index")
@@ -160,8 +161,8 @@ class SubFrame(customtkinter.CTkFrame):
     def update_graph(self):
         while True:
             try:
-                if len(self.data) > 100:
-                    self.data = self.data[-100:]
+                if len(self.data) > self.max_points:
+                    self.data = self.data[-self.max_points:]
                 self.ax.clear()
                 for i in range(self.data.shape[1]):
                     self.ax.plot(self.data[:,i], label="{}".format(i))
@@ -181,14 +182,14 @@ class SerialPlotterGUI(customtkinter.CTk):
     def __init__(self):
         super().__init__()
         threading.Thread.__init__(self) # スレッドグループを作成 (スレッドの管理ができる)
-        self.title("Serial Plotter GUI")
+        self.title("Serial Plotter Made By YakiFrog")
         # ウィンドウのサイズ自動
-        self.geometry("1000x550")
+        self.geometry("1000x600")
         # ウィンドウのサイズ変更可
         self.resizable(width=True, height=True)
         # ウィンドウサイズ限界
         self.maxsize(width=1000, height=600) 
-        self.minsize(width=350 + 20, height=550)
+        self.minsize(width=350 + 10, height=550)
         # ウィンドウを閉じるボタンを無効化
         self.protocol("WM_DELETE_WINDOW", self.quit) # 終了ボタンが押された時の処理
         
