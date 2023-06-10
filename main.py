@@ -146,14 +146,18 @@ class SubFrame(customtkinter.CTkFrame):
         # ここにウィジェットを追加していく   
         self.data = np.zeros((0,3))
         self.max_points = 200
-        # Graph
-        self.fig, self.ax = plt.subplots(figsize=(5, 4), dpi=50)
-        self.ax.set_xlabel("Index")
-        self.ax.set_ylabel("Value")
-        self.ax.set_xlim(0, 100)
-        self.ax.set_ylim(-50, 300)
-        self.ax.legend() # 凡例を表示
-        self.ax.grid() # グリッドを表示
+        self.num_graph = 1
+        # Graph ２行2列
+        self.fig, self.axes = plt.subplots(ncols=self.num_graph, nrows=1,figsize=(5, 4), dpi=50, tight_layout=True)
+        if self.num_graph == 1:
+            self.axes = [self.axes]
+        for i in range(self.num_graph):
+            self.axes[i].set_xlabel("Index")
+            self.axes[i].set_ylabel("Value")
+            self.axes[i].relim()
+            self.axes[i].autoscale_view()
+            self.axes[i].legend()
+            self.axes[i].grid()
         self.canvas = FigureCanvasTkAgg(self.fig, self)
         self.canvas.get_tk_widget().grid(row=0, column=0, sticky="nsew")
         self.canvas.draw()
@@ -163,15 +167,20 @@ class SubFrame(customtkinter.CTkFrame):
             try:
                 if len(self.data) > self.max_points:
                     self.data = self.data[-self.max_points:]
-                self.ax.clear()
+                for i in range(self.num_graph):
+                    self.axes[i].cla()
                 for i in range(self.data.shape[1]):
-                    self.ax.plot(self.data[:,i], label="{}".format(i))
-                self.ax.set_xlabel("Index")
-                self.ax.set_ylabel("Value")
-                self.ax.relim()
-                self.ax.autoscale_view()
-                self.ax.legend() # 凡例を表示
-                self.ax.grid() # グリッドを表示
+                    if i < self.num_graph: # グラフの数よりデータの次元数が少ない場合
+                        self.axes[i].plot(self.data[:,i], label="data{}".format(i))
+                    else:
+                        self.axes[-1].plot(self.data[:,i], label="data{}".format(i))
+                for i in range(self.num_graph):
+                    self.axes[i].set_xlabel("Index")
+                    self.axes[i].set_ylabel("Value")
+                    self.axes[i].relim()
+                    self.axes[i].autoscale_view()
+                    self.axes[i].legend()
+                    self.axes[i].grid()
                 self.canvas.draw()
                 time.sleep(0.02)
             except:
@@ -188,7 +197,7 @@ class SerialPlotterGUI(customtkinter.CTk):
         # ウィンドウのサイズ変更可
         self.resizable(width=True, height=True)
         # ウィンドウサイズ限界
-        self.maxsize(width=1000, height=600) 
+        self.maxsize(width=2000, height=600) 
         self.minsize(width=350 + 10, height=550)
         # ウィンドウを閉じるボタンを無効化
         self.protocol("WM_DELETE_WINDOW", self.quit) # 終了ボタンが押された時の処理
