@@ -15,16 +15,14 @@ class MainFrame(customtkinter.CTkFrame):
     def __init__ (self, master, **kwargs):
         super().__init__(master, **kwargs)
         self.master = master
-        
         pdx = 20
         pdy = 10
+        self.font = ("Arial", 12, "bold") 
+        self.data_nums = 3
         
-        self.font = ("Arial", 12, "bold")
         self.ser = serial.Serial()
         if self.ser.is_open:
             self.ser.close()
-            
-        self.data_nums = 3
         # ここにウィジェットを追加していく
         # ラベルを作成
         self.label = customtkinter.CTkLabel(self, text="Serial Plotter Made By YakiFrog", font=("Arial", 20, "bold"))
@@ -100,29 +98,19 @@ class MainFrame(customtkinter.CTkFrame):
             self.ser.close()
         self.ser.port = self.combo_port.get()
         self.ser.baudrate = int(self.combo_baudrate.get())
-        self.ser.open()
+        self.ser = serial.Serial(self.ser.port, self.ser.baudrate)
         self.button_connect.configure(state="disabled")
         self.button_disconnect.configure(state="active")
         self.button_send.configure(state="active")
         self.data_nums = int(self.combo_data.get())
         self.master.frame_graph.data = np.zeros((0, self.data_nums))
-        # スレッドを作成
-        self.thread = threading.Thread(target=self.read_serial) # 受信用のスレッドを作成
-        # SubFrameのグラフを更新するスレッドを作成 
-        self.thread_graph = threading.Thread(target=self.master.frame_graph.update_graph)
-        
-        # スレッドをデーモン化(とは，メインスレッドが終了したら，サブスレッドも終了するということ)
-        self.thread.daemon = False
-        self.thread_graph.daemon = False
-        # スレッドを起動
-        self.thread.start()
-        self.thread_graph.start()
         
     def disconnect(self):
         self.button_connect.configure(state="active")
         self.button_disconnect.configure(state="disabled")
         self.button_send.configure(state="disabled")
-        self.ser.close()
+        if self.ser.is_open:
+            self.ser.close()
         
     def update_graph_nums(self):
         self.master.frame_graph.change_graph(int(self.combo_graph.get()))
@@ -147,11 +135,9 @@ class MainFrame(customtkinter.CTkFrame):
                         self.text_console.configure(state="disabled")
                     # 常に最下部にスクロール
                     self.text_console.see("end")
-                    
                     try:
                         values = np.array(line.split(",")).astype(np.float32).reshape(1,self.data_nums) # 1行をカンマ区切りで配列に変換
-                        self.master.frame_graph.data = np.vstack((self.master.frame_graph.data, values))
-                                 
+                        self.master.frame_graph.data = np.vstack((self.master.frame_graph.data, values))    
                     except ValueError:
                         print("ValueError")
                         pass
@@ -201,7 +187,8 @@ class SubFrame(customtkinter.CTkFrame):
                     self.axes[i].autoscale_view()
                     self.axes[i].legend()
                     self.axes[i].grid()
-                self.canvas.draw()
+                self.canvas.draw_idle()
+                # self.canvas.flush_events() # 画面を更新する
                 time.sleep(0.02)
             except:
                 pass
@@ -236,10 +223,9 @@ class SerialPlotterGUI(customtkinter.CTk):
         # ウィンドウサイズ限界
         self.maxsize(width=2000, height=650) 
         self.minsize(width=350 + 10, height=650)
-        # ウィンドウを閉じるボタンを無効化
-        self.protocol("WM_DELETE_WINDOW", self.quit) # 終了ボタンが押された時の処理
+        # 閉じるボタンで終了
+        self.protocol("WM_DELETE_WINDOW", self.quit)
         
-        self.data = np.array([])
         # フレームを作成
         self.frame = MainFrame(self)
         self.frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
@@ -256,6 +242,18 @@ class SerialPlotterGUI(customtkinter.CTk):
         self.columnconfigure((1), weight=1)   # 0列目と1列目を拡大
         self.rowconfigure(0, weight=1)         # 0行目を拡大
         
+        time.sleep(0.1)
+        
+        # スレッドを作成
+        self.thread = threading.Thread(target=self.frame.read_serial)
+        self.thread_graph = threading.Thread(target=self.frame_graph.update_graph)
+        # スレッドをデーモン化(とは，メインスレッドが終了したら，サブスレッドも終了するということ)
+        self.thread.daemon = True
+        self.thread_graph.daemon = True
+        # スレッドを起動
+        self.thread.start()
+        self.thread_graph.start()
+            
 if __name__ == '__main__':
     app = SerialPlotterGUI()
     app.mainloop()
